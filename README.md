@@ -16,6 +16,14 @@ Angular 21 application for modular PDF tooling, currently focused on classic met
 - Edit metadata fields
 - Download updated PDF (keeps original file name)
 
+## Feature 2: PDF Page Organizer
+
+- Load a PDF and inspect all pages
+- Reorder pages (move up/down)
+- Rotate pages left/right in 90-degree steps
+- Remove pages
+- Download organized PDF (keeps original file name)
+
 Supported metadata fields:
 
 - Title
@@ -49,12 +57,17 @@ Current feature module:
 - `src/app/features/metadata-editor/application`
 - `src/app/features/metadata-editor/domain`
 - `src/app/features/metadata-editor/infrastructure`
+- `src/app/features/page-organizer/presentation`
+- `src/app/features/page-organizer/application`
+- `src/app/features/page-organizer/domain`
+- `src/app/features/page-organizer/infrastructure`
 
 ## Dependency Injection Design
 
 The app uses Angular `InjectionToken`s to decouple business logic from concrete implementations.
 
 - `PDF_METADATA_PORT` resolves to `PdfLibMetadataAdapter`
+- `PDF_PAGE_ORGANIZER_PORT` resolves to `PdfLibPageOrganizerAdapter`
 - `FILE_DOWNLOAD_PORT` resolves to `BrowserFileDownloadAdapter`
 
 This makes the app easier to test and easier to extend (for example, replacing pdf-lib later without touching application logic).
@@ -98,3 +111,11 @@ npm test
 3. Edit metadata values
 4. Apply changes in memory
 5. Download the updated PDF
+
+## Page Organizer Flow
+
+1. Upload a PDF
+2. Load and display the current page list
+3. Reorder, rotate, or remove pages
+4. Build the final layout in memory
+5. Download the organized PDF

@@ -18,6 +18,13 @@ export const routes: Routes = [
                         (m) => m.METADATA_EDITOR_ROUTES,
                     ),
             },
+            {
+                path: 'pages',
+                loadChildren: () =>
+                    import('@features/page-organizer/page-organizer.routes').then(
+                        (m) => m.PAGE_ORGANIZER_ROUTES,
+                    ),
+            },
         ],
     },
     {

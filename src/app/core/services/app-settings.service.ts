@@ -11,10 +11,24 @@ const TRANSLATIONS = {
         appTitle: 'PDF Editor Platform',
         appSubtitle: 'Herramientas PDF modulares sobre Angular 21',
         navMetadata: 'Metadatos',
+        navPages: 'Paginas',
         themeLabel: 'Modo oscuro',
         languageLabel: 'English',
         editorTitle: 'Editor de Metadatos PDF',
         editorSubtitle: 'Arrastra un PDF, edita los campos clasicos y descarga el archivo modificado.',
+        pagesTitle: 'Organizador de Paginas PDF',
+        pagesSubtitle: 'Reordena, rota o elimina paginas y descarga el PDF resultante.',
+        pagesListTitle: 'Paginas del documento',
+        pagesListSubtitle: 'Estos cambios se aplican al descargar el archivo actualizado.',
+        pageLabel: 'Pagina',
+        originalPageLabel: 'Pagina original',
+        rotationLabel: 'Rotacion',
+        moveUp: 'Subir',
+        moveDown: 'Bajar',
+        rotateLeft: 'Rotar izquierda',
+        rotateRight: 'Rotar derecha',
+        removePage: 'Eliminar',
+        downloadOrganizedPdf: 'Descargar PDF organizado',
         loadedFile: 'Archivo cargado:',
         metadataSectionTitle: 'Metadatos',
         metadataSectionSubtitle: 'Puedes modificar cualquier valor y aplicarlo al PDF.',
@@ -37,15 +51,30 @@ const TRANSLATIONS = {
         errorEncrypted: 'El PDF esta encriptado y no se puede editar en esta version.',
         errorCorrupted: 'No se pudo procesar el PDF. Verifica que el archivo no este corrupto.',
         errorUnexpected: 'Ocurrio un error inesperado procesando el PDF.',
+        errorAtLeastOnePage: 'El PDF debe conservar al menos una pagina.',
     },
     en: {
         appTitle: 'PDF Editor Platform',
         appSubtitle: 'Modular PDF tools powered by Angular 21',
         navMetadata: 'Metadata',
+        navPages: 'Pages',
         themeLabel: 'Dark mode',
         languageLabel: 'Spanish',
         editorTitle: 'PDF Metadata Editor',
         editorSubtitle: 'Drop a PDF, edit classic metadata fields, and download the updated file.',
+        pagesTitle: 'PDF Page Organizer',
+        pagesSubtitle: 'Reorder, rotate, or remove pages and download the resulting PDF.',
+        pagesListTitle: 'Document pages',
+        pagesListSubtitle: 'These changes are applied when you download the updated file.',
+        pageLabel: 'Page',
+        originalPageLabel: 'Original page',
+        rotationLabel: 'Rotation',
+        moveUp: 'Move up',
+        moveDown: 'Move down',
+        rotateLeft: 'Rotate left',
+        rotateRight: 'Rotate right',
+        removePage: 'Remove',
+        downloadOrganizedPdf: 'Download organized PDF',
         loadedFile: 'Loaded file:',
         metadataSectionTitle: 'Metadata',
         metadataSectionSubtitle: 'You can change any value and apply it to the PDF.',
@@ -68,6 +97,7 @@ const TRANSLATIONS = {
         errorEncrypted: 'This PDF is encrypted and cannot be edited in this version.',
         errorCorrupted: 'The PDF could not be processed. Check that the file is not corrupted.',
         errorUnexpected: 'An unexpected error occurred while processing the PDF.',
+        errorAtLeastOnePage: 'The PDF must keep at least one page.',
     },
 } as const;
 
@@ -101,6 +131,13 @@ export class AppSettingsService {
     }
 
     private initializeTheme(): void {
+        const storedTheme = this.readStorageValue<AppTheme>(THEME_STORAGE_KEY);
+
+        if (storedTheme === 'light' || storedTheme === 'dark') {
+            this.setTheme(storedTheme);
+            return;
+        }
+
         this.setTheme('light');
     }
 
