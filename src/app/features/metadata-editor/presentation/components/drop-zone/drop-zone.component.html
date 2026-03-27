@@ -1,0 +1,15 @@
+<section (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)"
+    class="rounded-lg border-2 border-dashed p-6 text-center transition dark:border-slate-600 dark:bg-slate-800"
+    [class.border-slate-400]="!isDragActive()" [class.border-sky-500]="isDragActive()"
+    [class.bg-slate-50]="!isDragActive()" [class.bg-sky-50]="isDragActive()">
+    <h2 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ appSettings.t('dropTitle') }}</h2>
+    <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">{{ appSettings.t('dropSubtitle') }}</p>
+
+    <label for="pdfFileInput"
+        class="mt-4 inline-flex cursor-pointer items-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white">
+        {{ appSettings.t('selectPdf') }}
+    </label>
+
+    <input id="pdfFileInput" type="file" accept="application/pdf,.pdf" class="hidden"
+        (change)="onManualFileInput($event)" />
+</section>

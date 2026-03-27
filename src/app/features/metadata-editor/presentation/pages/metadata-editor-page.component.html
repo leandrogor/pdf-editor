@@ -1,0 +1,50 @@
+<section class="grid gap-6">
+    <article class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">{{ appSettings.t('editorTitle') }}</h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            {{ appSettings.t('editorSubtitle') }}
+        </p>
+
+        <div class="mt-4">
+            <app-drop-zone (fileSelected)="onFileSelected($event)" />
+        </div>
+
+        @if (store.hasLoadedFile()) {
+        <p
+            class="mt-4 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            {{ appSettings.t('loadedFile') }} <span class="font-medium">{{ store.fileName() }}</span>
+        </p>
+        }
+
+        @if (store.errorMessage()) {
+        <p class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {{ store.errorMessage() }}
+        </p>
+        }
+    </article>
+
+    @if (store.hasLoadedFile()) {
+    <article class="rounded-lg border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">{{ appSettings.t('metadataSectionTitle')
+            }}</h3>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">{{ appSettings.t('metadataSectionSubtitle') }}</p>
+
+        <div class="mt-4">
+            <app-metadata-form [metadata]="store.metadata()" [disabled]="store.isBusy()"
+                (metadataSubmitted)="onMetadataSubmitted($event)" />
+        </div>
+
+        <div class="mt-6 flex flex-wrap items-center gap-3">
+            <button type="button"
+                class="inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                [disabled]="store.isBusy()" (click)="onDownloadClicked()">
+                {{ appSettings.t('downloadUpdated') }}
+            </button>
+
+            @if (store.status() === 'loading' || store.status() === 'saving') {
+            <span class="text-sm text-slate-500 dark:text-slate-400">{{ appSettings.t('processing') }}</span>
+            }
+        </div>
+    </article>
+    }
+</section>

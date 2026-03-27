@@ -1,0 +1,46 @@
+<div class="min-h-screen bg-slate-100 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
+    <header class="border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <div class="mx-auto flex w-full max-w-6xl items-center justify-between px-4 py-4 sm:px-6">
+            <div>
+                <h1 class="text-xl font-semibold tracking-tight">{{ appSettings.t('appTitle') }}</h1>
+                <p class="text-sm text-slate-500 dark:text-slate-400">{{ appSettings.t('appSubtitle') }}</p>
+            </div>
+            <div class="flex flex-wrap items-center gap-4">
+                <label for="theme-switch" class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                    <span>{{ appSettings.t('themeLabel') }}</span>
+                    <span class="relative inline-block h-6 w-11">
+                        <input id="theme-switch" type="checkbox" class="peer sr-only"
+                            [checked]="appSettings.isDarkMode()" (change)="onThemeToggle()" />
+                        <span
+                            class="absolute inset-0 rounded-full bg-slate-300 transition peer-checked:bg-sky-600 dark:bg-slate-700 dark:peer-checked:bg-sky-400"></span>
+                        <span
+                            class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition peer-checked:translate-x-5 dark:bg-slate-100"></span>
+                    </span>
+                </label>
+
+                <label for="language-switch" class="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                    <span>{{ appSettings.t('languageLabel') }}</span>
+                    <span class="relative inline-block h-6 w-11">
+                        <input id="language-switch" type="checkbox" class="peer sr-only"
+                            [checked]="!appSettings.isEnglish()" (change)="onLanguageToggle()" />
+                        <span
+                            class="absolute inset-0 rounded-full bg-slate-300 transition peer-checked:bg-sky-600 dark:bg-slate-700 dark:peer-checked:bg-sky-400"></span>
+                        <span
+                            class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white transition peer-checked:translate-x-5 dark:bg-slate-100"></span>
+                    </span>
+                </label>
+
+                <nav class="flex items-center gap-2">
+                    <a [routerLink]="['/metadata']" routerLinkActive="bg-slate-900 text-white"
+                        class="rounded-md border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 dark:border-slate-600 dark:text-slate-200">
+                        {{ appSettings.t('navMetadata') }}
+                    </a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <main class="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
+        <router-outlet />
+    </main>
+</div>

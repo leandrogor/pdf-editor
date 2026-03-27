@@ -1,0 +1,67 @@
+<form [formGroup]="form" (ngSubmit)="onSubmit()" class="grid gap-4">
+    <div class="grid gap-4 sm:grid-cols-2">
+        <div class="grid gap-2">
+            <label for="title" class="text-sm font-medium text-slate-700 dark:text-slate-200">{{
+                appSettings.t('fieldTitle') }}</label>
+            <input id="title" type="text" formControlName="title"
+                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+        </div>
+
+        <div class="grid gap-2">
+            <label for="author" class="text-sm font-medium text-slate-700 dark:text-slate-200">{{
+                appSettings.t('fieldAuthor') }}</label>
+            <input id="author" type="text" formControlName="author"
+                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+        </div>
+
+        <div class="grid gap-2">
+            <label for="subject" class="text-sm font-medium text-slate-700 dark:text-slate-200">{{
+                appSettings.t('fieldSubject') }}</label>
+            <input id="subject" type="text" formControlName="subject"
+                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+        </div>
+
+        <div class="grid gap-2">
+            <label for="keywords" class="text-sm font-medium text-slate-700 dark:text-slate-200">{{
+                appSettings.t('fieldKeywords') }}</label>
+            <input id="keywords" type="text" formControlName="keywords"
+                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+        </div>
+
+        <div class="grid gap-2">
+            <label for="creator" class="text-sm font-medium text-slate-700 dark:text-slate-200">{{
+                appSettings.t('fieldCreator') }}</label>
+            <input id="creator" type="text" formControlName="creator"
+                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+        </div>
+
+        <div class="grid gap-2">
+            <label for="producer" class="text-sm font-medium text-slate-700 dark:text-slate-200">{{
+                appSettings.t('fieldProducer') }}</label>
+            <input id="producer" type="text" formControlName="producer"
+                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+        </div>
+
+        <div class="grid gap-2">
+            <label for="creationDate" class="text-sm font-medium text-slate-700 dark:text-slate-200">{{
+                appSettings.t('fieldCreationDate') }}</label>
+            <input id="creationDate" type="datetime-local" formControlName="creationDate"
+                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+        </div>
+
+        <div class="grid gap-2">
+            <label for="modificationDate" class="text-sm font-medium text-slate-700 dark:text-slate-200">{{
+                appSettings.t('fieldModificationDate') }}</label>
+            <input id="modificationDate" type="datetime-local" formControlName="modificationDate"
+                class="w-full rounded-md border border-slate-300 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100" />
+        </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-3">
+        <button type="submit"
+            class="inline-flex items-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-slate-100 dark:text-slate-900"
+            [disabled]="disabled() || form.invalid || form.pristine">
+            {{ appSettings.t('updateMetadata') }}
+        </button>
+    </div>
+</form>
