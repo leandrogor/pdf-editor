@@ -1,3 +1,22 @@
 @import 'tailwindcss';
-
 @custom-variant dark (&:where(.dark, .dark *));
+
+.dark input[type='datetime-local'] {
+    color-scheme: dark;
+}
+
+.dark input[type='datetime-local']::-webkit-calendar-picker-indicator {
+    -webkit-filter: brightness(0) invert(1) !important;
+    filter: brightness(0) invert(1) !important;
+    opacity: 1;
+}
+
+.dark input[type='datetime-local']::-webkit-datetime-edit {
+    color: rgb(241 245 249);
+}
+
+.dark input[type='datetime-local']::-webkit-clear-button,
+.dark input[type='datetime-local']::-webkit-inner-spin-button {
+    -webkit-filter: brightness(0) invert(1);
+    filter: brightness(0) invert(1);
+}
