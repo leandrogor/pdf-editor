@@ -32,6 +32,13 @@ export const routes: Routes = [
                         (m) => m.PDF_MERGER_ROUTES,
                     ),
             },
+            {
+                path: 'compress',
+                loadChildren: () =>
+                    import('@features/pdf-compressor/pdf-compressor.routes').then(
+                        (m) => m.PDF_COMPRESSOR_ROUTES,
+                    ),
+            },
         ],
     },
     {

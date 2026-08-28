@@ -1,0 +1,299 @@
+<section class="grid gap-6">
+    <article
+        class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">{{ appSettings.t('compressTitle') }}</h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            {{ appSettings.t('compressSubtitle') }}
+        </p>
+
+        <section
+            class="mt-4 rounded-lg border-2 border-dashed p-4 text-center transition dark:border-slate-600 dark:bg-slate-800 sm:p-6"
+            [class.border-slate-400]="!isDragActive()" [class.border-sky-500]="isDragActive()"
+            [class.bg-slate-50]="!isDragActive()" [class.bg-sky-50]="isDragActive()" (dragover)="onDragOver($event)"
+            (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
+            <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                {{ appSettings.t('compressDropTitle') }}
+            </h3>
+            <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                {{ appSettings.t('compressDropSubtitle') }}
+            </p>
+
+            <label for="compressFileInput"
+                class="mt-4 inline-flex w-full cursor-pointer items-center justify-center rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-800 dark:bg-sky-500 dark:text-slate-950 dark:hover:bg-sky-400 sm:w-auto">
+                {{ appSettings.t('selectPdf') }}
+            </label>
+
+            <input id="compressFileInput" type="file" accept="application/pdf,.pdf" class="hidden"
+                (change)="onManualFileInput($event)" />
+        </section>
+
+        @if (store.hasFile()) {
+        <div
+            class="mt-4 flex flex-col justify-between gap-2 rounded-md border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 sm:flex-row sm:items-center">
+            <div class="flex items-center gap-2 overflow-hidden">
+                <span class="font-medium text-slate-900 dark:text-slate-100">{{ appSettings.t('loadedFile') }}</span>
+                <span class="truncate font-semibold text-sky-600 dark:text-sky-400">{{ store.selectedFile()?.name }}</span>
+            </div>
+            <div class="flex items-center gap-3 text-xs sm:text-sm">
+                <span class="rounded bg-slate-200 px-2 py-0.5 font-mono text-slate-800 dark:bg-slate-700 dark:text-slate-300">
+                    {{ formatBytes(store.originalFileSize()) }}
+                </span>
+                <button type="button"
+                    class="text-xs font-medium text-red-600 hover:underline dark:text-red-400"
+                    (click)="onResetClicked()">
+                    {{ appSettings.t('removeFile') }}
+                </button>
+            </div>
+        </div>
+        }
+
+        @if (store.errorMessage()) {
+        <p class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/40 dark:text-red-400">
+            {{ store.errorMessage() }}
+        </p>
+        }
+    </article>
+
+    @if (store.hasFile()) {
+    <article
+        class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+        <!-- Mode Switcher -->
+        <div class="flex border-b border-slate-200 pb-4 dark:border-slate-800">
+            <div class="flex rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
+                <button type="button"
+                    class="rounded-md px-4 py-2 text-sm font-medium transition"
+                    [class.bg-white]="store.mode() === 'preset'"
+                    [class.text-slate-900]="store.mode() === 'preset'"
+                    [class.shadow-sm]="store.mode() === 'preset'"
+                    [class.dark:bg-sky-500]="store.mode() === 'preset'"
+                    [class.dark:text-slate-950]="store.mode() === 'preset'"
+                    [class.text-slate-600]="store.mode() !== 'preset'"
+                    [class.dark:text-slate-400]="store.mode() !== 'preset'"
+                    (click)="onSelectMode('preset')">
+                    {{ appSettings.t('compressModePreset') }}
+                </button>
+                <button type="button"
+                    class="rounded-md px-4 py-2 text-sm font-medium transition"
+                    [class.bg-white]="store.mode() === 'target'"
+                    [class.text-slate-900]="store.mode() === 'target'"
+                    [class.shadow-sm]="store.mode() === 'target'"
+                    [class.dark:bg-sky-500]="store.mode() === 'target'"
+                    [class.dark:text-slate-950]="store.mode() === 'target'"
+                    [class.text-slate-600]="store.mode() !== 'target'"
+                    [class.dark:text-slate-400]="store.mode() !== 'target'"
+                    (click)="onSelectMode('target')">
+                    {{ appSettings.t('compressModeTarget') }}
+                </button>
+            </div>
+        </div>
+
+        <!-- Mode 1: Presets -->
+        @if (store.mode() === 'preset') {
+        <div class="mt-5 grid gap-4 sm:grid-cols-3">
+            <!-- Baja -->
+            <button type="button"
+                class="flex flex-col rounded-lg border p-4 text-left transition focus:outline-none"
+                [class.border-sky-500]="store.level() === 'low'"
+                [class.bg-sky-50]="store.level() === 'low'"
+                [class.ring-2]="store.level() === 'low'"
+                [class.ring-sky-500]="store.level() === 'low'"
+                [class.dark:bg-slate-800]="store.level() === 'low'"
+                [class.dark:border-sky-400]="store.level() === 'low'"
+                [class.border-slate-200]="store.level() !== 'low'"
+                [class.dark:border-slate-700]="store.level() !== 'low'"
+                [class.hover:border-slate-300]="store.level() !== 'low'"
+                (click)="onSelectLevel('low')">
+                <div class="flex items-center justify-between">
+                    <span class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                        {{ appSettings.t('compressLevelLow') }}
+                    </span>
+                    <span class="inline-block h-4 w-4 rounded-full border-2"
+                        [class.border-sky-600]="store.level() === 'low'"
+                        [class.bg-sky-600]="store.level() === 'low'"
+                        [class.border-slate-300]="store.level() !== 'low'"></span>
+                </div>
+                <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">
+                    {{ appSettings.t('compressLevelLowDesc') }}
+                </p>
+            </button>
+
+            <!-- Media (Recomendada) -->
+            <button type="button"
+                class="relative flex flex-col rounded-lg border p-4 text-left transition focus:outline-none"
+                [class.border-sky-500]="store.level() === 'medium'"
+                [class.bg-sky-50]="store.level() === 'medium'"
+                [class.ring-2]="store.level() === 'medium'"
+                [class.ring-sky-500]="store.level() === 'medium'"
+                [class.dark:bg-slate-800]="store.level() === 'medium'"
+                [class.dark:border-sky-400]="store.level() === 'medium'"
+                [class.border-slate-200]="store.level() !== 'medium'"
+                [class.dark:border-slate-700]="store.level() !== 'medium'"
+                [class.hover:border-slate-300]="store.level() !== 'medium'"
+                (click)="onSelectLevel('medium')">
+                <div class="flex items-center justify-between">
+                    <span class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                        {{ appSettings.t('compressLevelMedium') }}
+                    </span>
+                    <span class="inline-block h-4 w-4 rounded-full border-2"
+                        [class.border-sky-600]="store.level() === 'medium'"
+                        [class.bg-sky-600]="store.level() === 'medium'"
+                        [class.border-slate-300]="store.level() !== 'medium'"></span>
+                </div>
+                <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">
+                    {{ appSettings.t('compressLevelMediumDesc') }}
+                </p>
+            </button>
+
+            <!-- Alta -->
+            <button type="button"
+                class="flex flex-col rounded-lg border p-4 text-left transition focus:outline-none"
+                [class.border-sky-500]="store.level() === 'high'"
+                [class.bg-sky-50]="store.level() === 'high'"
+                [class.ring-2]="store.level() === 'high'"
+                [class.ring-sky-500]="store.level() === 'high'"
+                [class.dark:bg-slate-800]="store.level() === 'high'"
+                [class.dark:border-sky-400]="store.level() === 'high'"
+                [class.border-slate-200]="store.level() !== 'high'"
+                [class.dark:border-slate-700]="store.level() !== 'high'"
+                [class.hover:border-slate-300]="store.level() !== 'high'"
+                (click)="onSelectLevel('high')">
+                <div class="flex items-center justify-between">
+                    <span class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                        {{ appSettings.t('compressLevelHigh') }}
+                    </span>
+                    <span class="inline-block h-4 w-4 rounded-full border-2"
+                        [class.border-sky-600]="store.level() === 'high'"
+                        [class.bg-sky-600]="store.level() === 'high'"
+                        [class.border-slate-300]="store.level() !== 'high'"></span>
+                </div>
+                <p class="mt-2 text-xs text-slate-600 dark:text-slate-400">
+                    {{ appSettings.t('compressLevelHighDesc') }}
+                </p>
+            </button>
+        </div>
+        }
+
+        <!-- Mode 2: Custom Target Size -->
+        @if (store.mode() === 'target') {
+        <div class="mt-5 max-w-lg rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800/60">
+            <label for="compressTargetInput" class="block text-sm font-medium text-slate-900 dark:text-slate-100">
+                {{ appSettings.t('compressTargetLabel') }}
+            </label>
+
+            <div class="mt-2 flex items-center gap-2">
+                <input id="compressTargetInput" type="number" step="any" min="0.01"
+                    [value]="store.targetValue()"
+                    (input)="onTargetValueInput($event)"
+                    placeholder="Ej. 3 ó 1000"
+                    class="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100" />
+
+                <select
+                    id="compressTargetUnitSelect"
+                    [attr.aria-label]="appSettings.t('compressTargetUnit')"
+                    [value]="store.targetUnit()"
+                    (change)="onTargetUnitChange($event)"
+                    class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 shadow-sm focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100">
+                    <option value="MB">MB</option>
+                    <option value="KB">KB</option>
+                </select>
+            </div>
+
+            @if (store.targetSizeBytes(); as targetBytes) {
+            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                {{ appSettings.t('compressTargetHelper') }} <span class="font-semibold text-slate-700 dark:text-slate-300">{{ formatBytes(targetBytes) }}</span>
+            </p>
+            }
+
+            @if (store.isFileAlreadySmallerThanTarget()) {
+            <div class="mt-3 flex items-start gap-2 rounded-md border border-sky-200 bg-sky-50 p-3 text-xs text-sky-800 dark:border-sky-800/50 dark:bg-sky-950/40 dark:text-sky-300">
+                <svg class="h-4 w-4 shrink-0 mt-0.5 text-sky-600 dark:text-sky-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{{ appSettings.t('compressTargetAlreadySmaller') }}</span>
+            </div>
+            }
+        </div>
+        }
+
+        <!-- Compress Action Button -->
+        <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <button type="button"
+                class="inline-flex w-full items-center justify-center rounded-md bg-slate-900 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-sky-500 dark:text-slate-950 dark:hover:bg-sky-400 sm:w-auto"
+                [disabled]="store.isBusy()"
+                (click)="onCompressClicked()">
+                @if (store.isBusy()) {
+                <svg class="mr-2 h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span>{{ appSettings.t('compressingBtn') }}</span>
+                } @else {
+                <span>{{ appSettings.t('compressActionBtn') }}</span>
+                }
+            </button>
+        </div>
+    </article>
+    }
+
+    <!-- Result Card -->
+    @if (store.hasResult() && store.result(); as result) {
+    <article
+        class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+        <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+            {{ appSettings.t('compressResultTitle') }}
+        </h3>
+
+        <!-- Metrics Grid -->
+        <div class="mt-4 grid gap-3 sm:grid-cols-3">
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-700 dark:bg-slate-800">
+                <span class="text-xs text-slate-500 dark:text-slate-400">{{ appSettings.t('compressOriginalSize') }}</span>
+                <p class="mt-1 text-lg font-bold text-slate-800 dark:text-slate-200">{{ formatBytes(result.originalSize) }}</p>
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-700 dark:bg-slate-800">
+                <span class="text-xs text-slate-500 dark:text-slate-400">{{ appSettings.t('compressNewSize') }}</span>
+                <p class="mt-1 text-lg font-bold text-sky-600 dark:text-sky-400">{{ formatBytes(result.compressedSize) }}</p>
+            </div>
+
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3.5 dark:border-slate-700 dark:bg-slate-800">
+                <span class="text-xs text-slate-500 dark:text-slate-400">{{ appSettings.t('compressSaved') }}</span>
+                <p class="mt-1 text-lg font-bold"
+                    [class.text-emerald-600]="result.reductionPercentage > 0"
+                    [class.dark:text-emerald-400]="result.reductionPercentage > 0"
+                    [class.text-slate-600]="result.reductionPercentage === 0"
+                    [class.dark:text-slate-400]="result.reductionPercentage === 0">
+                    @if (result.reductionPercentage > 0) {
+                    <span>-{{ result.reductionPercentage }}% ({{ formatBytes(result.reductionBytes) }})</span>
+                    } @else {
+                    <span>0% (0 B)</span>
+                    }
+                </p>
+            </div>
+        </div>
+
+        @if (result.isOriginalPreserved) {
+        <div class="mt-4 rounded-md border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900 dark:border-sky-800/50 dark:bg-sky-950/40 dark:text-sky-300">
+            {{ appSettings.t('compressOriginalPreservedNotice') }}
+        </div>
+        }
+
+        <!-- Actions -->
+        <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+            <button type="button"
+                class="inline-flex w-full items-center justify-center rounded-md bg-sky-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-sky-500 dark:bg-sky-500 dark:text-slate-950 dark:hover:bg-sky-400 sm:w-auto"
+                (click)="onDownloadClicked()">
+                <svg class="mr-2 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                {{ appSettings.t('compressDownloadBtn') }}
+            </button>
+
+            <button type="button"
+                class="inline-flex w-full items-center justify-center rounded-md border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 sm:w-auto"
+                (click)="onResetClicked()">
+                {{ appSettings.t('compressOtherFileBtn') }}
+            </button>
+        </div>
+    </article>
+    }
+</section>
