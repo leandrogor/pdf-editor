@@ -38,8 +38,9 @@ describe('PdfMergerPageComponent', () => {
     });
 
     it('should render the drop zone and title', () => {
+        const appSettings = TestBed.inject(AppSettingsService);
         const compiled = fixture.nativeElement as HTMLElement;
-        expect(compiled.querySelector('h2')?.textContent).toContain('Unir');
+        expect(compiled.querySelector('h2')?.textContent).toContain(appSettings.t('mergeTitle'));
         expect(compiled.querySelector('input[type="file"]')).toBeTruthy();
     });
 });
