@@ -25,6 +25,13 @@ export const routes: Routes = [
                         (m) => m.PAGE_ORGANIZER_ROUTES,
                     ),
             },
+            {
+                path: 'merge',
+                loadChildren: () =>
+                    import('@features/pdf-merger/pdf-merger.routes').then(
+                        (m) => m.PDF_MERGER_ROUTES,
+                    ),
+            },
         ],
     },
     {

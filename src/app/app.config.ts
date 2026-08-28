@@ -3,9 +3,11 @@ import { provideRouter } from '@angular/router';
 import { FILE_DOWNLOAD_PORT } from '@core/tokens/file-download.token';
 import { PDF_PAGE_ORGANIZER_PORT } from '@core/tokens/pdf-page-organizer.token';
 import { PDF_METADATA_PORT } from '@core/tokens/pdf-metadata.token';
+import { PDF_MERGER_PORT } from '@core/tokens/pdf-merger.token';
 import { BrowserFileDownloadAdapter } from '@features/metadata-editor/infrastructure/adapters/browser-file-download.adapter';
 import { PdfLibMetadataAdapter } from '@features/metadata-editor/infrastructure/adapters/pdf-lib-metadata.adapter';
 import { PdfLibPageOrganizerAdapter } from '@features/page-organizer/infrastructure/adapters/pdf-lib-page-organizer.adapter';
+import { PdfLibMergerAdapter } from '@features/pdf-merger/infrastructure/adapters/pdf-lib-merger.adapter';
 
 import { routes } from './app.routes';
 
@@ -15,6 +17,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     PdfLibMetadataAdapter,
     PdfLibPageOrganizerAdapter,
+    PdfLibMergerAdapter,
     BrowserFileDownloadAdapter,
     {
       provide: PDF_METADATA_PORT,
@@ -27,6 +30,10 @@ export const appConfig: ApplicationConfig = {
     {
       provide: PDF_PAGE_ORGANIZER_PORT,
       useExisting: PdfLibPageOrganizerAdapter,
+    },
+    {
+      provide: PDF_MERGER_PORT,
+      useExisting: PdfLibMergerAdapter,
     },
   ],
 };
