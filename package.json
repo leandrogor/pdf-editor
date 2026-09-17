@@ -22,6 +22,7 @@
     "@angular/router": "^21.2.22",
     "@tailwindcss/postcss": "^4.2.2",
     "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.3.289",
     "postcss": "^8.5.8",
     "rxjs": "~7.8.0",
     "tailwindcss": "^4.2.2",

@@ -19,12 +19,18 @@
             "browser": "src/main.ts",
             "tsConfig": "tsconfig.app.json",
             "allowedCommonJsDependencies": [
-              "pako"
+              "pako",
+              "pdfjs-dist"
             ],
             "assets": [
               {
                 "glob": "**/*",
                 "input": "public"
+              },
+              {
+                "glob": "pdf.worker.min.mjs",
+                "input": "node_modules/pdfjs-dist/build/",
+                "output": "/"
               }
             ],
             "styles": [

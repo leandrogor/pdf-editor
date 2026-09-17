@@ -1,0 +1,135 @@
+<section class="grid gap-6">
+
+    <!-- ── Upload card ───────────────────────────────────────────────────── -->
+    <article
+        class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
+            {{ appSettings.t('editTextTitle') }}
+        </h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+            {{ appSettings.t('editTextSubtitle') }}
+        </p>
+
+        <div class="mt-4">
+            <app-drop-zone (fileSelected)="onFileSelected($event)" />
+        </div>
+
+        @if (store.hasLoadedFile()) {
+        <p
+            class="mt-4 break-all rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+            {{ appSettings.t('loadedFile') }}
+            <span class="font-medium">{{ store.fileName() }}</span>
+        </p>
+        }
+
+        @if (store.errorMessage()) {
+        <p class="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {{ store.errorMessage() }}
+        </p>
+        }
+    </article>
+
+    <!-- ── Preview + editor card ─────────────────────────────────────────── -->
+    @if (store.hasLoadedFile() && store.currentPage()) {
+    <article
+        class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+
+        <!-- Header row: title + action buttons -->
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <h3 class="text-base font-semibold text-slate-900 dark:text-slate-100">
+                    {{ appSettings.t('editTextPreviewTitle') }}
+                </h3>
+                <p class="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    {{ appSettings.t('editTextPreviewSubtitle') }}
+                </p>
+            </div>
+
+            <!-- Download button -->
+            <button type="button"
+                class="inline-flex shrink-0 items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white disabled:opacity-50 dark:bg-sky-500 dark:text-slate-950"
+                [disabled]="store.isBusy()" (click)="onDownload()">
+                {{ appSettings.t('downloadEditedPdf') }}
+                @if (store.pendingEditsCount() > 0) {
+                <span
+                    class="rounded-full bg-amber-400 px-1.5 py-0.5 text-xs font-semibold text-slate-900">
+                    {{ store.pendingEditsCount() }}
+                </span>
+                }
+            </button>
+        </div>
+
+        <!-- Toolbar: zoom + page navigation -->
+        <div
+            class="mt-4 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
+
+            <!-- Zoom controls -->
+            <div class="flex items-center gap-1">
+                <button type="button"
+                    class="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 disabled:opacity-40 dark:border-slate-600 dark:text-slate-200"
+                    [disabled]="store.isBusy() || store.scale() <= 0.5" (click)="onZoomOut()">
+                    {{ appSettings.t('editTextZoomOut') }}
+                </button>
+                <span class="min-w-[3rem] text-center text-xs text-slate-600 dark:text-slate-400">
+                    {{ (store.scale() * 100).toFixed(0) }}%
+                </span>
+                <button type="button"
+                    class="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 disabled:opacity-40 dark:border-slate-600 dark:text-slate-200"
+                    [disabled]="store.isBusy() || store.scale() >= 3" (click)="onZoomIn()">
+                    {{ appSettings.t('editTextZoomIn') }}
+                </button>
+            </div>
+
+            <!-- Page navigation -->
+            <div class="ml-auto flex items-center gap-2">
+                <button type="button"
+                    class="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 disabled:opacity-40 dark:border-slate-600 dark:text-slate-200"
+                    [disabled]="!store.canGoPrev() || store.isBusy()" (click)="onPrevPage()">
+                    {{ appSettings.t('pageNavPrev') }}
+                </button>
+                <span class="text-xs text-slate-600 dark:text-slate-400">
+                    {{ store.currentPageIndex() + 1 }}
+                    {{ appSettings.t('pageNavOf') }}
+                    {{ store.pageCount() }}
+                </span>
+                <button type="button"
+                    class="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 disabled:opacity-40 dark:border-slate-600 dark:text-slate-200"
+                    [disabled]="!store.canGoNext() || store.isBusy()" (click)="onNextPage()">
+                    {{ appSettings.t('pageNavNext') }}
+                </button>
+            </div>
+        </div>
+
+        <!-- Pending edits badge -->
+        @if (store.pendingEditsCount() > 0) {
+        <p class="mt-3 text-sm text-amber-600 dark:text-amber-400">
+            {{ store.pendingEditsCount() }} {{ appSettings.t('editTextPendingEdits') }}
+        </p>
+        }
+
+        <!-- Rendering spinner -->
+        @if (store.status() === 'rendering') {
+        <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">{{ appSettings.t('processing') }}</p>
+        }
+
+        <!-- Page canvas + overlay -->
+        @if (store.currentPage(); as page) {
+        <div class="mt-4 overflow-auto rounded-md border border-slate-200 bg-slate-100 dark:border-slate-700 dark:bg-slate-950">
+            <div class="p-4">
+                <app-pdf-text-overlay
+                    [page]="page"
+                    [edits]="store.edits()"
+                    (textEdit)="onTextEdit($event)" />
+            </div>
+        </div>
+        }
+
+        <!-- Saving spinner -->
+        @if (store.status() === 'saving') {
+        <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">{{ appSettings.t('processing') }}</p>
+        }
+
+    </article>
+    }
+
+</section>

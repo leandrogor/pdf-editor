@@ -39,6 +39,13 @@ export const routes: Routes = [
                         (m) => m.PDF_COMPRESSOR_ROUTES,
                     ),
             },
+            {
+                path: 'edit',
+                loadChildren: () =>
+                    import('@features/text-editor/text-editor.routes').then(
+                        (m) => m.TEXT_EDITOR_ROUTES,
+                    ),
+            },
         ],
     },
     {
