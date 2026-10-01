@@ -2,6 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 import {
+    JpegEmbedder,
     PDFDict,
     PDFDocument,
     PDFName,
@@ -256,6 +257,7 @@ export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
         session: PdfSession,
         edits: PdfTextEdit[],
         allTextItems: PdfTextItem[],
+        options?: import('@features/text-editor/domain/ports/pdf-text-editor.port').ApplyEditsOptions,
     ): Promise<Uint8Array> {
         if (edits.length === 0) {
             return this.getSession(session).originalBytes;
@@ -284,7 +286,39 @@ export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
             fallbackFonts.set(fontKey, await pdfDoc.embedFont(PDF_LIB_FONT_MAP[fontKey]));
         }
 
-        // Apply each edit
+        // ── Pre-pass: Threshold / binarize scanned images in document ─────────
+        // Converts pixels with luminance > threshold (default 210) to pure white (255)
+        // and pixels <= threshold to solid black (0).
+        // This removes paper texture, compression noise, and antialiasing halos,
+        // so white erase rectangles and digital black text blend seamlessly.
+        const shouldCleanBg = options?.cleanScannedBackground ?? false;
+        const thresholdVal = options?.threshold ?? 210;
+
+        if (shouldCleanBg) {
+            const objects = pdfDoc.context.enumerateIndirectObjects();
+            for (const [ref, obj] of objects) {
+                if (!obj || typeof (obj as any).dict?.get !== 'function') continue;
+                const dict = (obj as any).dict;
+                const subtype = dict.get(PDFName.of('Subtype'))?.toString();
+                const type = dict.get(PDFName.of('Type'))?.toString();
+
+                if (subtype === '/Image' || (type === '/XObject' && subtype !== '/Form')) {
+                    const rawContents = (typeof (obj as any).getContents === 'function'
+                        ? (obj as any).getContents()
+                        : (obj as any).contents) as Uint8Array | null;
+
+                    if (rawContents && rawContents.length > 0) {
+                        const processedBytes = await this.thresholdImageStream(rawContents, thresholdVal);
+                        if (processedBytes) {
+                            const embedder = await JpegEmbedder.for(processedBytes);
+                            await embedder.embedIntoContext(pdfDoc.context, ref);
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Apply each edit ───────────────────────────────────────────────────
         for (const edit of editMap.values()) {
             const item = itemMap.get(edit.itemId);
             if (!item) continue;
@@ -301,7 +335,10 @@ export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
 
             // ── Step 1: erase original text with background color ───────
             if (!item.isManual) {
-                const bg = item.backgroundColor ?? [1, 1, 1];
+                const bg = (shouldCleanBg && item.isOcr)
+                    ? [1, 1, 1]
+                    : (item.backgroundColor ?? [1, 1, 1]);
+
                 page.drawRectangle({
                     x: xPt - margin,
                     y: yPt - margin,
@@ -314,7 +351,7 @@ export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
 
             if (!edit.newText.trim()) continue;
 
-            const [r, g, b] = item.color;
+            const [r, g, b] = (shouldCleanBg && item.isOcr) ? [0, 0, 0] : item.color;
 
             // ── Step 2: attempt to draw with the ORIGINAL embedded font ────────
             const originalFontKey = this.findOriginalFontKey(pdfDoc, page, item.fontName, edit.newText);
@@ -681,4 +718,97 @@ export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
         if (!s) throw new Error('PDF text editor session is no longer available.');
         return s;
     }
+
+    private async thresholdImageStream(
+        rawBytes: Uint8Array,
+        threshold: number,
+    ): Promise<Uint8Array | null> {
+        if (typeof document === 'undefined') return null;
+
+        try {
+            const cleanBytes = new Uint8Array(rawBytes.length);
+            cleanBytes.set(rawBytes);
+
+            let mimeType = 'image/jpeg';
+            if (cleanBytes[0] === 0x89 && cleanBytes[1] === 0x50 && cleanBytes[2] === 0x4e && cleanBytes[3] === 0x47) {
+                mimeType = 'image/png';
+            }
+
+            const blob = new Blob([cleanBytes as BlobPart], { type: mimeType });
+
+            let bitmap: ImageBitmap | HTMLImageElement;
+            let width = 0;
+            let height = 0;
+
+            if (typeof createImageBitmap === 'function') {
+                bitmap = await createImageBitmap(blob);
+                width = bitmap.width;
+                height = bitmap.height;
+            } else {
+                const img = new Image();
+                const url = URL.createObjectURL(blob);
+                await new Promise<void>((resolve, reject) => {
+                    img.onload = () => resolve();
+                    img.onerror = reject;
+                    img.src = url;
+                });
+                URL.revokeObjectURL(url);
+                bitmap = img;
+                width = img.naturalWidth;
+                height = img.naturalHeight;
+            }
+
+            if (!width || !height) return null;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            if (!ctx) return null;
+
+            ctx.drawImage(bitmap, 0, 0);
+            if ('close' in bitmap && typeof (bitmap as any).close === 'function') {
+                (bitmap as any).close();
+            }
+
+            const imgData = ctx.getImageData(0, 0, width, height);
+            const data = imgData.data;
+
+            // Thresholding binarization:
+            // Standard luminance L = 0.299*R + 0.587*G + 0.114*B
+            // Values > threshold (e.g. 210) -> Pure White (255, 255, 255)
+            // Values <= threshold -> Solid Black (0, 0, 0)
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+
+                if (lum > threshold) {
+                    data[i] = 255;
+                    data[i + 1] = 255;
+                    data[i + 2] = 255;
+                } else {
+                    data[i] = 0;
+                    data[i + 1] = 0;
+                    data[i + 2] = 0;
+                }
+            }
+
+            ctx.putImageData(imgData, 0, 0);
+
+            const jpegBlob = await new Promise<Blob | null>((resolve) => {
+                canvas.toBlob((b) => resolve(b), 'image/jpeg', 0.95);
+            });
+            if (!jpegBlob) return null;
+
+            const arrayBuffer = await jpegBlob.arrayBuffer();
+            const outBytes = new Uint8Array(arrayBuffer.byteLength);
+            outBytes.set(new Uint8Array(arrayBuffer));
+            return outBytes;
+        } catch {
+            return null;
+        }
+    }
 }
+

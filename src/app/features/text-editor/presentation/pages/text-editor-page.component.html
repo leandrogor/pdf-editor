@@ -120,6 +120,18 @@
                 {{ store.isAddingText() ? appSettings.t('addTextCancel') : appSettings.t('addTextBtn') }}
             </button>
 
+            <!-- Clean scanned background threshold checkbox (only when OCR was run) -->
+            @if (store.ocrItemsCount() > 0) {
+            <label class="inline-flex cursor-pointer items-center gap-1.5 rounded border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                <input
+                    type="checkbox"
+                    class="h-3 w-3 rounded accent-violet-500"
+                    [checked]="store.cleanScannedBg()"
+                    (change)="store.toggleCleanScannedBg()" />
+                🧹 {{ appSettings.t('cleanScannedBg') }}
+            </label>
+            }
+
             <!-- Page navigation -->
             <div class="ml-auto flex items-center gap-2">
                 <button type="button"

@@ -43,9 +43,16 @@ export class TextEditorFacade {
         return this.textEditorPort.recognizeOcrText(session, pageIndex, scale, onProgress);
     }
 
-    async downloadWithEdits(edits: PdfTextEdit[], allTextItems: PdfTextItem[]): Promise<void> {
+    async downloadWithEdits(
+        edits: PdfTextEdit[],
+        allTextItems: PdfTextItem[],
+        options?: { cleanScannedBackground?: boolean; threshold?: number },
+    ): Promise<void> {
         const session = this.ensureSession();
-        const bytes = await this.textEditorPort.applyEdits(session, edits, allTextItems);
+        const bytes = await this.textEditorPort.applyEdits(session, edits, allTextItems, {
+            cleanScannedBackground: options?.cleanScannedBackground ?? false,
+            threshold: options?.threshold ?? 210,
+        });
         this.fileDownloadPort.download(bytes, this.buildOutputName(), PDF_MIME_TYPE);
     }
 

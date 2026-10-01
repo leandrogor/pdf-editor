@@ -34,6 +34,9 @@ export class TextEditorStore {
     /** Flag for clicking on the page to insert new text */
     readonly isAddingText = signal(false);
 
+    /** When true, scanned images are cleaned using thresholding (<=210 black, >210 white) before saving */
+    readonly cleanScannedBg = signal(true);
+
     /** All text items collected across all loaded pages (keyed by id) */
     private readonly allTextItemsMap = new Map<string, PdfTextItem>();
 
@@ -176,6 +179,10 @@ export class TextEditorStore {
         this.isAddingText.update((v) => !v);
     }
 
+    toggleCleanScannedBg(): void {
+        this.cleanScannedBg.update((v) => !v);
+    }
+
     addManualText(xPt: number, yPt: number): PdfTextItem | null {
         const page = this.currentPage();
         if (!page) return null;
@@ -226,7 +233,10 @@ export class TextEditorStore {
         try {
             const edits = Array.from(this.edits().values());
             const allItems = Array.from(this.allTextItemsMap.values());
-            await this.facade.downloadWithEdits(edits, allItems);
+            await this.facade.downloadWithEdits(edits, allItems, {
+                cleanScannedBackground: this.cleanScannedBg(),
+                threshold: 210,
+            });
             this.status.set('ready');
         } catch (error) {
             this.setError(this.appSettings.t(mapPdfErrorKey(error)));

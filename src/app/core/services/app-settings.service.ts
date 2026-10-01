@@ -121,6 +121,7 @@ const TRANSLATIONS = {
         addTextCancel: 'Cancelar añadir',
         addTextHint: 'Haz clic en cualquier parte de la página para colocar un nuevo texto.',
         newTextPlaceholder: 'Nuevo texto',
+        cleanScannedBg: 'Limpiar fondo escaneado (Threshold 210)',
     },
     en: {
         appTitle: 'PDF Editor Platform',
@@ -236,6 +237,7 @@ const TRANSLATIONS = {
         addTextCancel: 'Cancel add',
         addTextHint: 'Click anywhere on the page to place new text.',
         newTextPlaceholder: 'New text',
+        cleanScannedBg: 'Clean scanned background (Threshold 210)',
     },
 } as const;
 
