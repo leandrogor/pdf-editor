@@ -43,4 +43,16 @@ export class TextEditorPageComponent {
     protected async onDownload(): Promise<void> {
         await this.store.downloadPdf();
     }
+
+    protected async onRunOcr(): Promise<void> {
+        await this.store.runOcr();
+    }
+
+    protected onToggleAddText(): void {
+        this.store.toggleAddingText();
+    }
+
+    protected onAddTextClick(event: { xPt: number; yPt: number }): void {
+        this.store.addManualText(event.xPt, event.yPt);
+    }
 }

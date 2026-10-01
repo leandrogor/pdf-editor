@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import * as pdfjsLib from 'pdfjs-dist';
 import type { PDFDocumentProxy, PDFPageProxy } from 'pdfjs-dist';
 import {
@@ -20,6 +20,7 @@ import { PdfPageRender } from '@features/text-editor/domain/models/pdf-page-rend
 import { PdfTextEdit } from '@features/text-editor/domain/models/pdf-text-edit.model';
 import { PdfTextItem } from '@features/text-editor/domain/models/pdf-text-item.model';
 import { PdfTextEditorPort } from '@features/text-editor/domain/ports/pdf-text-editor.port';
+import { PdfOcrService } from '../services/pdf-ocr.service';
 
 /** Minimal shape of a text item returned by PDF.js getTextContent() */
 interface PdfjsTextItem {
@@ -32,6 +33,9 @@ interface PdfjsTextItem {
 interface TextEditorSession {
     pdfjsDocument: PDFDocumentProxy;
     originalBytes: Uint8Array;
+    lastRenderedCanvas?: HTMLCanvasElement;
+    lastRenderedScale?: number;
+    lastRenderedPageIndex?: number;
 }
 
 // Fallback: map to pdf-lib StandardFonts
@@ -53,6 +57,7 @@ const PDF_LIB_FONT_MAP: Record<PdfTextItem['pdfFont'], StandardFonts> = {
 @Injectable({ providedIn: 'root' })
 export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
     private readonly sessions = new Map<string, TextEditorSession>();
+    private readonly ocrService = inject(PdfOcrService);
 
     constructor() {
         pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
@@ -80,7 +85,8 @@ export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
     // ─── Render page ─────────────────────────────────────────────────────────
 
     async renderPage(session: PdfSession, pageIndex: number, scale: number): Promise<PdfPageRender> {
-        const { pdfjsDocument } = this.getSession(session);
+        const sessionData = this.getSession(session);
+        const { pdfjsDocument } = sessionData;
         const page: PDFPageProxy = await pdfjsDocument.getPage(pageIndex + 1);
         const viewport = page.getViewport({ scale });
         const widthPx = Math.ceil(viewport.width);
@@ -96,55 +102,17 @@ export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
         await page.render({ canvas, canvasContext: ctx, viewport }).promise;
         const imageDataUrl = canvas.toDataURL('image/png');
 
+        // Cache last rendered canvas for fast OCR lookup
+        sessionData.lastRenderedCanvas = canvas;
+        sessionData.lastRenderedScale = scale;
+        sessionData.lastRenderedPageIndex = pageIndex;
+
         // Unscaled viewport for correct PDF point coordinates
         const unscaledViewport = page.getViewport({ scale: 1 });
         const pageHeightPt = unscaledViewport.height;
 
         const textContent = await page.getTextContent({ includeMarkedContent: false });
         const textItems: PdfTextItem[] = [];
-
-        // Helper to sample foreground text color directly from the rendered canvas
-        const sampleTextColor = (
-            xPt: number,
-            yPt: number,
-            wPt: number,
-            hPt: number,
-        ): [number, number, number] => {
-            try {
-                // Focus on the first 40% of the text element width where letters are guaranteed
-                const scanX = Math.max(0, Math.floor(xPt * scale));
-                const scanY = Math.max(0, Math.floor(yPt * scale));
-                const scanW = Math.max(1, Math.min(Math.floor(wPt * scale * 0.5), 50));
-                const scanH = Math.max(1, Math.min(Math.floor(hPt * scale), 40));
-
-                const imgData = ctx.getImageData(scanX, scanY, scanW, scanH);
-                const data = imgData.data;
-                let minLum = 255;
-                let bestR = 0.12, bestG = 0.12, bestB = 0.12;
-                let found = false;
-
-                for (let i = 0; i < data.length; i += 4) {
-                    const r = data[i];
-                    const g = data[i + 1];
-                    const b = data[i + 2];
-                    const a = data[i + 3];
-                    if (a < 100) continue;
-
-                    const lum = (r + g + b) / 3;
-                    // Ignore background white/light pixels
-                    if (lum < 210 && lum < minLum) {
-                        minLum = lum;
-                        bestR = r / 255;
-                        bestG = g / 255;
-                        bestB = b / 255;
-                        found = true;
-                    }
-                }
-                return found ? [bestR, bestG, bestB] : [0.12, 0.12, 0.12];
-            } catch {
-                return [0.12, 0.12, 0.12];
-            }
-        };
 
         for (const rawItem of textContent.items) {
             const item = rawItem as PdfjsTextItem;
@@ -180,8 +148,8 @@ export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
 
             const fontInfo = this.resolveFontInfo(realFontName, isBold, isItalic);
 
-            // Sample actual rendered text color
-            const textColor = sampleTextColor(x, y, width, height);
+            // Sample actual rendered text and background colors
+            const sampled = this.sampleColors(ctx, x, y, width, height, scale);
 
             textItems.push({
                 id: crypto.randomUUID(),
@@ -197,11 +165,14 @@ export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
                 bold: isBold,
                 italic: isItalic,
                 isLight,
-                color: textColor,
+                color: sampled.textColor,
+                backgroundColor: sampled.backgroundColor,
                 transform,
                 pdfFont: fontInfo.pdfFont,
             });
         }
+
+        const isScanned = textItems.length === 0;
 
         return {
             pageIndex,
@@ -212,7 +183,71 @@ export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
             heightPx,
             scale,
             textItems,
+            isScanned,
         };
+    }
+
+    // ─── OCR recognition ─────────────────────────────────────────────────────
+
+    async recognizeOcrText(
+        session: PdfSession,
+        pageIndex: number,
+        scale: number,
+        onProgress?: (progressPct: number) => void,
+    ): Promise<PdfTextItem[]> {
+        const sessionData = this.getSession(session);
+        let canvas = sessionData.lastRenderedCanvas;
+        let ctx = canvas?.getContext('2d', { willReadFrequently: true });
+
+        if (!canvas || !ctx || sessionData.lastRenderedPageIndex !== pageIndex || sessionData.lastRenderedScale !== scale) {
+            const page = await sessionData.pdfjsDocument.getPage(pageIndex + 1);
+            const viewport = page.getViewport({ scale });
+            canvas = document.createElement('canvas');
+            canvas.width = Math.ceil(viewport.width);
+            canvas.height = Math.ceil(viewport.height);
+            ctx = canvas.getContext('2d', { willReadFrequently: true });
+            if (!ctx) throw new Error('Could not get 2D canvas context');
+            await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+            sessionData.lastRenderedCanvas = canvas;
+            sessionData.lastRenderedPageIndex = pageIndex;
+            sessionData.lastRenderedScale = scale;
+        }
+
+        const ocrGroups = await this.ocrService.recognize(canvas, onProgress);
+        const textItems: PdfTextItem[] = [];
+
+        for (const g of ocrGroups) {
+            const x = g.x0 / scale;
+            const y = g.y0 / scale;
+            const width = Math.max(12, (g.x1 - g.x0) / scale);
+            const height = Math.max(8, (g.y1 - g.y0) / scale);
+            const fontSize = Math.max(8, Math.min(60, height * 0.82));
+
+            const sampled = this.sampleColors(ctx, x, y, width, height, scale);
+
+            textItems.push({
+                id: crypto.randomUUID(),
+                pageIndex,
+                text: g.text,
+                x,
+                y,
+                width,
+                height,
+                fontSize,
+                fontName: 'Helvetica',
+                fontFamily: '"Segoe UI", Roboto, "Open Sans", Helvetica, Arial, sans-serif',
+                bold: false,
+                italic: false,
+                isLight: false,
+                color: sampled.textColor,
+                backgroundColor: sampled.backgroundColor,
+                transform: [fontSize, 0, 0, fontSize, x, y],
+                pdfFont: 'Helvetica',
+                isOcr: true,
+            });
+        }
+
+        return textItems;
     }
 
     // ─── Apply edits ─────────────────────────────────────────────────────────
@@ -263,15 +298,18 @@ export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
             const yPt = pageHeightPt - item.y - item.fontSize;
             const margin = item.fontSize * 0.2;
 
-            // ── Step 1: erase original text with a crisp white rectangle ───────
-            page.drawRectangle({
-                x: xPt - margin,
-                y: yPt - margin,
-                width: item.width + margin * 2,
-                height: item.fontSize + margin * 2,
-                color: rgb(1, 1, 1),
-                opacity: 1,
-            });
+            // ── Step 1: erase original text with background color ───────
+            if (!item.isManual) {
+                const bg = item.backgroundColor ?? [1, 1, 1];
+                page.drawRectangle({
+                    x: xPt - margin,
+                    y: yPt - margin,
+                    width: item.width + margin * 2,
+                    height: item.fontSize + margin * 2,
+                    color: rgb(bg[0], bg[1], bg[2]),
+                    opacity: 1,
+                });
+            }
 
             if (!edit.newText.trim()) continue;
 
@@ -358,7 +396,76 @@ export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
         const s = this.sessions.get(session.id);
         if (s) {
             void s.pdfjsDocument.cleanup();
+            delete s.lastRenderedCanvas;
             this.sessions.delete(session.id);
+        }
+    }
+
+    // ─── Private: color sampling ─────────────────────────────────────────────
+
+    private sampleColors(
+        ctx: CanvasRenderingContext2D,
+        xPt: number,
+        yPt: number,
+        wPt: number,
+        hPt: number,
+        scale: number,
+    ): { textColor: [number, number, number]; backgroundColor: [number, number, number] } {
+        try {
+            const scanX = Math.max(0, Math.floor(xPt * scale));
+            const scanY = Math.max(0, Math.floor(yPt * scale));
+            const scanW = Math.max(1, Math.min(Math.floor(wPt * scale * 0.8), ctx.canvas.width - scanX));
+            const scanH = Math.max(1, Math.min(Math.floor(hPt * scale), ctx.canvas.height - scanY));
+
+            const imgData = ctx.getImageData(scanX, scanY, scanW, scanH);
+            const data = imgData.data;
+
+            let minLum = 255;
+            let maxLum = 0;
+            let bestR = 0.12, bestG = 0.12, bestB = 0.12;
+            let bgR = 1, bgG = 1, bgB = 1;
+            let foundText = false;
+            let foundBg = false;
+
+            for (let i = 0; i < data.length; i += 4) {
+                const r = data[i];
+                const g = data[i + 1];
+                const b = data[i + 2];
+                const a = data[i + 3];
+                if (a < 100) continue;
+
+                const lum = (r + g + b) / 3;
+                if (lum < 200 && lum < minLum) {
+                    minLum = lum;
+                    bestR = r / 255;
+                    bestG = g / 255;
+                    bestB = b / 255;
+                    foundText = true;
+                }
+                if (lum > 220 && lum > maxLum) {
+                    maxLum = lum;
+                    bgR = r / 255;
+                    bgG = g / 255;
+                    bgB = b / 255;
+                    foundBg = true;
+                }
+            }
+
+            if (!foundBg && data.length >= 4) {
+                bgR = data[0] / 255;
+                bgG = data[1] / 255;
+                bgB = data[2] / 255;
+            }
+
+            return {
+                textColor: foundText ? [bestR, bestG, bestB] : [0.12, 0.12, 0.12],
+                backgroundColor: [bgR, bgG, bgB],
+            };
+        } catch {
+            return {
+                textColor: [0.12, 0.12, 0.12],
+                backgroundColor: [1, 1, 1],
+            };
         }
     }
 

@@ -1,6 +1,6 @@
 <section class="grid gap-6">
 
-    <!-- ── Upload card ───────────────────────────────────────────────────── -->
+    <!-- ── Upload card ─────────────────────────────────────────────────── -->
     <article
         class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
         <h2 class="text-lg font-semibold text-slate-900 dark:text-slate-100">
@@ -29,7 +29,7 @@
         }
     </article>
 
-    <!-- ── Preview + editor card ─────────────────────────────────────────── -->
+    <!-- ── Preview + editor card ──────────────────────────────────────── -->
     @if (store.hasLoadedFile() && store.currentPage()) {
     <article
         class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
@@ -59,7 +59,7 @@
             </button>
         </div>
 
-        <!-- Toolbar: zoom + page navigation -->
+        <!-- Toolbar: zoom + page navigation + OCR + add text -->
         <div
             class="mt-4 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800">
 
@@ -79,6 +79,46 @@
                     {{ appSettings.t('editTextZoomIn') }}
                 </button>
             </div>
+
+            <!-- OCR button -->
+            <button type="button"
+                class="inline-flex items-center gap-1.5 rounded border border-violet-400 bg-violet-50 px-2.5 py-1 text-xs font-medium text-violet-700 transition-colors hover:bg-violet-100 disabled:opacity-40 dark:border-violet-600 dark:bg-violet-900/30 dark:text-violet-300"
+                [disabled]="store.isBusy()"
+                (click)="onRunOcr()">
+                @if (store.ocrStatus() === 'running') {
+                <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-violet-500 border-t-transparent"></span>
+                {{ appSettings.t('ocrScanning') }} {{ store.ocrProgress() }}%
+                } @else {
+                <!-- Scan icon -->
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 21H5a2 2 0 01-2-2v-4m6 6h10a2 2 0 002-2v-4M3 12h18" />
+                </svg>
+                {{ appSettings.t('ocrScanBtn') }}
+                }
+            </button>
+
+            <!-- Add text button -->
+            <button type="button"
+                class="inline-flex items-center gap-1.5 rounded border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-40"
+                [class.border-emerald-400]="!store.isAddingText()"
+                [class.bg-emerald-50]="!store.isAddingText()"
+                [class.text-emerald-700]="!store.isAddingText()"
+                [class.hover:bg-emerald-100]="!store.isAddingText()"
+                [class.dark:border-emerald-600]="!store.isAddingText()"
+                [class.dark:bg-emerald-900\/30]="!store.isAddingText()"
+                [class.dark:text-emerald-300]="!store.isAddingText()"
+                [class.border-amber-500]="store.isAddingText()"
+                [class.bg-amber-50]="store.isAddingText()"
+                [class.text-amber-700]="store.isAddingText()"
+                [class.ring-1]="store.isAddingText()"
+                [class.ring-amber-400]="store.isAddingText()"
+                [disabled]="store.isBusy()"
+                (click)="onToggleAddText()">
+                <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                {{ store.isAddingText() ? appSettings.t('addTextCancel') : appSettings.t('addTextBtn') }}
+            </button>
 
             <!-- Page navigation -->
             <div class="ml-auto flex items-center gap-2">
@@ -100,6 +140,50 @@
             </div>
         </div>
 
+        <!-- Add text hint banner -->
+        @if (store.isAddingText()) {
+        <p class="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+            ✏️ {{ appSettings.t('addTextHint') }}
+        </p>
+        }
+
+        <!-- OCR scanned page banner -->
+        @if (store.isCurrentPageScanned() && store.ocrStatus() === 'idle') {
+        <div class="mt-3 rounded-md border border-violet-200 bg-violet-50 p-3 dark:border-violet-700 dark:bg-violet-900/20">
+            <p class="font-medium text-sm text-violet-800 dark:text-violet-300">
+                🔍 {{ appSettings.t('ocrBannerTitle') }}
+            </p>
+            <p class="mt-1 text-xs text-violet-700 dark:text-violet-400">
+                {{ appSettings.t('ocrBannerDesc') }}
+            </p>
+            <button type="button"
+                class="mt-2 inline-flex items-center gap-1.5 rounded bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                [disabled]="store.isBusy()"
+                (click)="onRunOcr()">
+                🔍 {{ appSettings.t('ocrScanBtn') }}
+            </button>
+        </div>
+        }
+
+        <!-- OCR completed badge -->
+        @if (store.ocrStatus() === 'completed') {
+        <p class="mt-3 rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-sm text-violet-700 dark:border-violet-700 dark:bg-violet-900/20 dark:text-violet-300">
+            ✅ {{ appSettings.t('ocrCompleted') }}
+            <strong>{{ store.ocrItemsCount() }}</strong>
+        </p>
+        }
+
+        <!-- OCR running progress -->
+        @if (store.ocrStatus() === 'running') {
+        <div class="mt-3 rounded-md border border-violet-200 bg-violet-50 px-3 py-2 dark:border-violet-700 dark:bg-violet-900/20">
+            <p class="text-sm text-violet-700 dark:text-violet-300">{{ appSettings.t('ocrScanning') }} {{ store.ocrProgress() }}%</p>
+            <div class="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-violet-200 dark:bg-violet-800">
+                <div class="h-full rounded-full bg-violet-500 transition-all duration-300"
+                    [style.width.%]="store.ocrProgress()"></div>
+            </div>
+        </div>
+        }
+
         <!-- Pending edits badge -->
         @if (store.pendingEditsCount() > 0) {
         <p class="mt-3 text-sm text-amber-600 dark:text-amber-400">
@@ -119,7 +203,9 @@
                 <app-pdf-text-overlay
                     [page]="page"
                     [edits]="store.edits()"
-                    (textEdit)="onTextEdit($event)" />
+                    [isAddingText]="store.isAddingText()"
+                    (textEdit)="onTextEdit($event)"
+                    (addTextClick)="onAddTextClick($event)" />
             </div>
         </div>
         }

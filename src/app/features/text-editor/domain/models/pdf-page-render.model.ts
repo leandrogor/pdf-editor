@@ -15,4 +15,6 @@ export interface PdfPageRender {
     /** Scale factor used when rendering */
     scale: number;
     textItems: PdfTextItem[];
+    /** Whether this page was detected as a scanned or image document without native selectable text */
+    isScanned?: boolean;
 }

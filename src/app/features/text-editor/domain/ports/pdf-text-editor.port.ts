@@ -7,6 +7,12 @@ export interface PdfTextEditorPort {
     open(pdfBytes: Uint8Array): Promise<PdfSession>;
     getPageCount(session: PdfSession): number;
     renderPage(session: PdfSession, pageIndex: number, scale: number): Promise<PdfPageRender>;
+    recognizeOcrText(
+        session: PdfSession,
+        pageIndex: number,
+        scale: number,
+        onProgress?: (progressPct: number) => void,
+    ): Promise<PdfTextItem[]>;
     applyEdits(
         session: PdfSession,
         edits: PdfTextEdit[],

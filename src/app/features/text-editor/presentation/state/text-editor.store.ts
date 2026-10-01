@@ -26,6 +26,14 @@ export class TextEditorStore {
     readonly currentPage = signal<PdfPageRender | null>(null);
     readonly scale = signal(DEFAULT_SCALE);
 
+    /** OCR recognition status and progress */
+    readonly ocrStatus = signal<'idle' | 'running' | 'completed' | 'error'>('idle');
+    readonly ocrProgress = signal(0);
+    readonly ocrItemsCount = signal(0);
+
+    /** Flag for clicking on the page to insert new text */
+    readonly isAddingText = signal(false);
+
     /** All text items collected across all loaded pages (keyed by id) */
     private readonly allTextItemsMap = new Map<string, PdfTextItem>();
 
@@ -34,11 +42,17 @@ export class TextEditorStore {
 
     readonly pendingEditsCount = signal(0);
 
+    readonly isCurrentPageScanned = computed(() => {
+        const page = this.currentPage();
+        return !!page && (page.isScanned ?? page.textItems.length === 0);
+    });
+
     readonly isBusy = computed(
         () =>
             this.status() === 'loading' ||
             this.status() === 'rendering' ||
-            this.status() === 'saving',
+            this.status() === 'saving' ||
+            this.ocrStatus() === 'running',
     );
     readonly hasLoadedFile = computed(() => this.fileName().length > 0);
     readonly canGoNext = computed(() => this.currentPageIndex() < this.pageCount() - 1);
@@ -58,6 +72,10 @@ export class TextEditorStore {
         }
 
         this.status.set('loading');
+        this.ocrStatus.set('idle');
+        this.ocrProgress.set(0);
+        this.ocrItemsCount.set(0);
+        this.isAddingText.set(false);
         this.allTextItemsMap.clear();
         this.edits.set(new Map());
         this.pendingEditsCount.set(0);
@@ -116,6 +134,89 @@ export class TextEditorStore {
         this.pendingEditsCount.set(this.edits().size);
     }
 
+    async runOcr(): Promise<void> {
+        if (this.isBusy() || !this.currentPage()) return;
+
+        this.clearError();
+        this.ocrStatus.set('running');
+        this.ocrProgress.set(0);
+
+        try {
+            const pageIndex = this.currentPageIndex();
+            const scale = this.scale();
+            const ocrItems = await this.facade.recognizeOcrText(
+                pageIndex,
+                scale,
+                (pct) => this.ocrProgress.set(pct),
+            );
+
+            for (const item of ocrItems) {
+                this.allTextItemsMap.set(item.id, item);
+            }
+
+            this.currentPage.update((p) => {
+                if (!p) return null;
+                const nonOcr = p.textItems.filter((i) => !i.isOcr);
+                return {
+                    ...p,
+                    textItems: [...nonOcr, ...ocrItems],
+                    isScanned: false,
+                };
+            });
+
+            this.ocrItemsCount.set(ocrItems.length);
+            this.ocrStatus.set('completed');
+        } catch {
+            this.ocrStatus.set('error');
+            this.setError(this.appSettings.t('ocrError'));
+        }
+    }
+
+    toggleAddingText(): void {
+        this.isAddingText.update((v) => !v);
+    }
+
+    addManualText(xPt: number, yPt: number): PdfTextItem | null {
+        const page = this.currentPage();
+        if (!page) return null;
+
+        const defaultText = this.appSettings.t('newTextPlaceholder');
+        const newItem: PdfTextItem = {
+            id: crypto.randomUUID(),
+            pageIndex: page.pageIndex,
+            text: defaultText,
+            x: Math.round(xPt),
+            y: Math.round(yPt),
+            width: 120,
+            height: 18,
+            fontSize: 12,
+            fontName: 'Helvetica',
+            fontFamily: '"Segoe UI", Roboto, "Open Sans", Helvetica, Arial, sans-serif',
+            bold: false,
+            italic: false,
+            isLight: false,
+            color: [0.12, 0.12, 0.12],
+            backgroundColor: [1, 1, 1],
+            transform: [12, 0, 0, 12, xPt, yPt],
+            pdfFont: 'Helvetica',
+            isManual: true,
+        };
+
+        this.allTextItemsMap.set(newItem.id, newItem);
+        this.currentPage.update((p) =>
+            p ? { ...p, textItems: [...p.textItems, newItem], isScanned: false } : null,
+        );
+
+        this.recordEdit({
+            itemId: newItem.id,
+            originalText: '',
+            newText: defaultText,
+        });
+
+        this.isAddingText.set(false);
+        return newItem;
+    }
+
     async downloadPdf(): Promise<void> {
         if (!this.hasLoadedFile()) return;
 
@@ -141,6 +242,10 @@ export class TextEditorStore {
 
     private async renderCurrentPage(): Promise<void> {
         this.status.set('rendering');
+        this.ocrStatus.set('idle');
+        this.ocrProgress.set(0);
+        this.ocrItemsCount.set(0);
+        this.isAddingText.set(false);
         try {
             const page = await this.facade.renderPage(this.currentPageIndex(), this.scale());
             // Index all text items from this page for later edit application

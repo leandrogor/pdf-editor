@@ -34,6 +34,15 @@ export class TextEditorFacade {
         return this.textEditorPort.renderPage(session, pageIndex, scale);
     }
 
+    async recognizeOcrText(
+        pageIndex: number,
+        scale: number,
+        onProgress?: (progressPct: number) => void,
+    ): Promise<PdfTextItem[]> {
+        const session = this.ensureSession();
+        return this.textEditorPort.recognizeOcrText(session, pageIndex, scale, onProgress);
+    }
+
     async downloadWithEdits(edits: PdfTextEdit[], allTextItems: PdfTextItem[]): Promise<void> {
         const session = this.ensureSession();
         const bytes = await this.textEditorPort.applyEdits(session, edits, allTextItems);

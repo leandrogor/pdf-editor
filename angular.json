@@ -20,7 +20,8 @@
             "tsConfig": "tsconfig.app.json",
             "allowedCommonJsDependencies": [
               "pako",
-              "pdfjs-dist"
+              "pdfjs-dist",
+              "tesseract.js"
             ],
             "assets": [
               {
@@ -30,6 +31,16 @@
               {
                 "glob": "pdf.worker.min.mjs",
                 "input": "node_modules/pdfjs-dist/build/",
+                "output": "/"
+              },
+              {
+                "glob": "worker.min.js",
+                "input": "node_modules/tesseract.js/dist/",
+                "output": "/"
+              },
+              {
+                "glob": "tesseract-core-*.wasm*",
+                "input": "node_modules/tesseract.js-core/",
                 "output": "/"
               }
             ],

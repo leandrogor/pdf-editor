@@ -27,4 +27,10 @@ export interface PdfTextItem {
     pdfFont: 'Helvetica' | 'Helvetica-Bold' | 'Helvetica-Oblique' | 'Helvetica-BoldOblique'
            | 'Times-Roman' | 'Times-Bold' | 'Times-Italic' | 'Times-BoldItalic'
            | 'Courier' | 'Courier-Bold' | 'Courier-Oblique' | 'Courier-BoldOblique';
+    /** Optional background color sampled from canvas [0..1] */
+    backgroundColor?: [number, number, number];
+    /** Whether this text item was detected via OCR */
+    isOcr?: boolean;
+    /** Whether this text item was manually added by the user */
+    isManual?: boolean;
 }

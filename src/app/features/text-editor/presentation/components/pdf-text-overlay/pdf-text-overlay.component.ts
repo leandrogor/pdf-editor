@@ -19,7 +19,9 @@ import { PdfTextItem } from '@features/text-editor/domain/models/pdf-text-item.m
 export class PdfTextOverlayComponent {
     readonly page = input.required<PdfPageRender>();
     readonly edits = input<Map<string, PdfTextEdit>>(new Map());
+    readonly isAddingText = input<boolean>(false);
     readonly textEdit = output<PdfTextEdit>();
+    readonly addTextClick = output<{ xPt: number; yPt: number }>();
 
     /** Tracks which text item is currently active / being edited */
     protected readonly activeItemId = signal<string | null>(null);
@@ -54,16 +56,26 @@ export class PdfTextOverlayComponent {
         }
     }
 
+    protected onContainerClick(event: MouseEvent): void {
+        if (!this.isAddingText()) return;
+        const target = event.target as HTMLElement;
+        if (target.tagName === 'SPAN') return;
+
+        const container = event.currentTarget as HTMLElement;
+        const rect = container.getBoundingClientRect();
+        const clickX = event.clientX - rect.left;
+        const clickY = event.clientY - rect.top;
+        const scale = this.page().scale;
+
+        this.addTextClick.emit({
+            xPt: clickX / scale,
+            yPt: clickY / scale,
+        });
+    }
+
     /**
      * Convert a PdfTextItem's position (in PDF points, top-left origin) to
      * CSS pixel position for the overlay, using the page's scale factor.
-     *
-     * KEY FIX FOR DOUBLE-VISION:
-     * When not editing and not modified, text color is TRANSPARENT.
-     * This lets the crisp, sharp canvas image underneath show through completely
-     * with zero ghosting or blurry duplicate outlines.
-     * When focused for editing or modified, a solid white background covers
-     * the underlying image text, and the editable text becomes clearly visible.
      */
     protected itemStyle(
         item: PdfTextItem,
@@ -71,12 +83,20 @@ export class PdfTextOverlayComponent {
         isEditing: boolean,
         isModified: boolean,
     ): Record<string, string> {
-        const isVisible = isEditing || isModified;
+        const isVisible = isEditing || isModified || item.isManual;
         const color = isVisible
             ? `rgb(${item.color.map((c) => Math.round(c * 255)).join(',')})`
             : 'transparent';
 
-        const backgroundColor = isVisible ? '#ffffff' : 'transparent';
+        const bgRgb = item.backgroundColor
+            ? `rgb(${item.backgroundColor.map((c) => Math.round(c * 255)).join(',')})`
+            : '#ffffff';
+
+        const backgroundColor = isEditing || isModified
+            ? bgRgb
+            : item.isManual
+            ? 'rgba(255, 255, 255, 0.95)'
+            : 'transparent';
 
         return {
             left: `${item.x * scale}px`,

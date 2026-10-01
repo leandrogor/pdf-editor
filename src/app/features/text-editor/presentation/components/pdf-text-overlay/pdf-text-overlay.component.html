@@ -2,7 +2,9 @@
 <div
     class="relative inline-block select-none shadow-lg bg-white"
     [style.width.px]="page().widthPx"
-    [style.height.px]="page().heightPx">
+    [style.height.px]="page().heightPx"
+    [class.cursor-crosshair]="isAddingText()"
+    (click)="onContainerClick($event)">
 
     <!-- Rendered page image (background: 100% sharp native PDF rasterization) -->
     <img
@@ -21,19 +23,22 @@
 
         <span
             #textSpan
-            [attr.contenteditable]="true"
+            [attr.contenteditable]="!isAddingText()"
             [style]="itemStyle(item, page().scale, isEditing, isModified)"
             class="absolute overflow-hidden cursor-text outline-none select-text transition-shadow rounded-xs"
-            [class.hover:ring-1]="!isEditing && !isModified"
-            [class.hover:ring-sky-400/80]="!isEditing && !isModified"
-            [class.hover:bg-sky-400/10]="!isEditing && !isModified"
+            [class.hover:ring-1]="!isEditing && !isModified && !item.isManual"
+            [class.hover:ring-sky-400/80]="!isEditing && !isModified && !item.isManual"
+            [class.hover:bg-sky-400/10]="!isEditing && !isModified && !item.isManual"
             [class.z-20]="isEditing"
             [class.ring-2]="isEditing"
             [class.ring-sky-500]="isEditing"
             [class.shadow-md]="isEditing"
             [class.z-10]="isModified && !isEditing"
-            [class.ring-1]="isModified && !isEditing"
+            [class.ring-1]="(isModified && !isEditing) || item.isManual"
             [class.ring-amber-500]="isModified && !isEditing"
+            [class.ring-emerald-500]="item.isManual && !isModified && !isEditing"
+            [class.ring-purple-400]="item.isOcr && !isModified && !isEditing"
+            [class.hover:ring-purple-400/80]="item.isOcr && !isEditing && !isModified"
             spellcheck="false"
             autocomplete="off"
             (focus)="onFocus(item)"
