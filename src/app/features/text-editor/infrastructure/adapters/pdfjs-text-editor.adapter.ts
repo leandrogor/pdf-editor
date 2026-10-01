@@ -221,7 +221,7 @@ export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
             const y = g.y0 / scale;
             const width = Math.max(12, (g.x1 - g.x0) / scale);
             const height = Math.max(8, (g.y1 - g.y0) / scale);
-            const fontSize = Math.max(8, Math.min(60, height * 0.82));
+            const fontSize = Math.max(8, Math.min(60, height * 0.68));
 
             const sampled = this.sampleColors(ctx, x, y, width, height, scale);
 
@@ -296,7 +296,8 @@ export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
             // Convert from top-left back to bottom-left (PDF space)
             const xPt = item.x;
             const yPt = pageHeightPt - item.y - item.fontSize;
-            const margin = item.fontSize * 0.2;
+            // OCR items need a larger margin to fully cover the scanned image text
+            const margin = item.isOcr ? item.fontSize * 0.45 : item.fontSize * 0.2;
 
             // ── Step 1: erase original text with background color ───────
             if (!item.isManual) {
@@ -332,7 +333,17 @@ export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
                 // ── Fallback: draw with embedded standard font ─────────────────
                 const font = fallbackFonts.get(item.pdfFont)!;
 
-                if (!item.bold) {
+                // For OCR items the background is a scanned image — the white-stroke
+                // trick would paint a visible halo. Use plain fill (mode 0) instead.
+                if (item.isOcr || item.isManual) {
+                    page.drawText(edit.newText, {
+                        x: xPt,
+                        y: yPt,
+                        font,
+                        size: item.fontSize,
+                        color: rgb(r, g, b),
+                    });
+                } else if (!item.bold) {
                     // Standard Helvetica in PDF readers has heavy stems (weight ~400+).
                     // When the original document text is Light (300) or regular screen sans,
                     // raw Helvetica looks like bold text.
@@ -401,8 +412,6 @@ export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
         }
     }
 
-    // ─── Private: color sampling ─────────────────────────────────────────────
-
     private sampleColors(
         ctx: CanvasRenderingContext2D,
         xPt: number,
@@ -412,62 +421,91 @@ export class PdfjsTextEditorAdapter implements PdfTextEditorPort {
         scale: number,
     ): { textColor: [number, number, number]; backgroundColor: [number, number, number] } {
         try {
-            const scanX = Math.max(0, Math.floor(xPt * scale));
-            const scanY = Math.max(0, Math.floor(yPt * scale));
-            const scanW = Math.max(1, Math.min(Math.floor(wPt * scale * 0.8), ctx.canvas.width - scanX));
-            const scanH = Math.max(1, Math.min(Math.floor(hPt * scale), ctx.canvas.height - scanY));
-
-            const imgData = ctx.getImageData(scanX, scanY, scanW, scanH);
-            const data = imgData.data;
+            // ── Text color: scan the interior of the bbox ─────────────────────
+            const scanX  = Math.max(0, Math.floor(xPt * scale));
+            const scanY  = Math.max(0, Math.floor(yPt * scale));
+            const scanW  = Math.max(1, Math.min(Math.floor(wPt * scale * 0.8), ctx.canvas.width  - scanX));
+            const scanH  = Math.max(1, Math.min(Math.floor(hPt * scale),        ctx.canvas.height - scanY));
+            const interior = ctx.getImageData(scanX, scanY, scanW, scanH).data;
 
             let minLum = 255;
-            let maxLum = 0;
             let bestR = 0.12, bestG = 0.12, bestB = 0.12;
-            let bgR = 1, bgG = 1, bgB = 1;
             let foundText = false;
-            let foundBg = false;
 
-            for (let i = 0; i < data.length; i += 4) {
-                const r = data[i];
-                const g = data[i + 1];
-                const b = data[i + 2];
-                const a = data[i + 3];
+            for (let i = 0; i < interior.length; i += 4) {
+                const a = interior[i + 3];
                 if (a < 100) continue;
-
-                const lum = (r + g + b) / 3;
+                const lum = (interior[i] + interior[i + 1] + interior[i + 2]) / 3;
                 if (lum < 200 && lum < minLum) {
                     minLum = lum;
-                    bestR = r / 255;
-                    bestG = g / 255;
-                    bestB = b / 255;
+                    bestR = interior[i]     / 255;
+                    bestG = interior[i + 1] / 255;
+                    bestB = interior[i + 2] / 255;
                     foundText = true;
-                }
-                if (lum > 220 && lum > maxLum) {
-                    maxLum = lum;
-                    bgR = r / 255;
-                    bgG = g / 255;
-                    bgB = b / 255;
-                    foundBg = true;
                 }
             }
 
-            if (!foundBg && data.length >= 4) {
-                bgR = data[0] / 255;
-                bgG = data[1] / 255;
-                bgB = data[2] / 255;
+            // ── Background color: sample a strip OUTSIDE the text area ────────
+            // Prefer the 4-px strip ABOVE the bbox; fall back to below, then inside.
+            const stripH = Math.max(4, Math.round(hPt * scale * 0.25));
+            let bgR = 1, bgG = 1, bgB = 1;
+            let foundBg = false;
+
+            const trySampleStrip = (sy: number): boolean => {
+                const clampSY = Math.max(0, sy);
+                const clampSH = Math.min(stripH, ctx.canvas.height - clampSY);
+                if (clampSH <= 0) return false;
+                const clampSX = Math.max(0, scanX);
+                const clampSW = Math.min(scanW, ctx.canvas.width - clampSX);
+                if (clampSW <= 0) return false;
+                const strip = ctx.getImageData(clampSX, clampSY, clampSW, clampSH).data;
+                let maxLum = 0;
+                let found = false;
+                for (let i = 0; i < strip.length; i += 4) {
+                    if (strip[i + 3] < 100) continue;
+                    const lum = (strip[i] + strip[i + 1] + strip[i + 2]) / 3;
+                    if (lum > maxLum) {
+                        maxLum = lum;
+                        bgR = strip[i]     / 255;
+                        bgG = strip[i + 1] / 255;
+                        bgB = strip[i + 2] / 255;
+                        found = true;
+                    }
+                }
+                return found && maxLum > 180; // only accept if clearly light
+            };
+
+            // Try strip above → strip below → fallback to interior brightest pixel
+            if (!trySampleStrip(scanY - stripH)) {
+                if (!trySampleStrip(scanY + Math.floor(hPt * scale) + 2)) {
+                    // Last resort: pick lightest pixel from interior
+                    let maxLum = 0;
+                    for (let i = 0; i < interior.length; i += 4) {
+                        if (interior[i + 3] < 100) continue;
+                        const lum = (interior[i] + interior[i + 1] + interior[i + 2]) / 3;
+                        if (lum > maxLum) {
+                            maxLum = lum;
+                            bgR = interior[i]     / 255;
+                            bgG = interior[i + 1] / 255;
+                            bgB = interior[i + 2] / 255;
+                            foundBg = true;
+                        }
+                    }
+                }
             }
 
             return {
-                textColor: foundText ? [bestR, bestG, bestB] : [0.12, 0.12, 0.12],
+                textColor:       foundText ? [bestR, bestG, bestB] : [0.12, 0.12, 0.12],
                 backgroundColor: [bgR, bgG, bgB],
             };
         } catch {
             return {
-                textColor: [0.12, 0.12, 0.12],
+                textColor:       [0.12, 0.12, 0.12],
                 backgroundColor: [1, 1, 1],
             };
         }
     }
+
 
     // ─── Private: original font lookup ───────────────────────────────────────
 
